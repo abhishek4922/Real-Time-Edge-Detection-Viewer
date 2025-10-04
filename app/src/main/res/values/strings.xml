@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">EdgeVision</string>
+    <string name="toggle_processing">Toggle edge detection</string>
+    <string name="capture_image">Capture image</string>
+</resources>
