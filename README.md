@@ -5,6 +5,8 @@ An Android application that captures camera frames, processes them in real-time 
 ---
 
 ## 🎥 Demo Video
+![App Screenshot](edgeapp.jpg)
+
 
 [![Watch the video]](https://drive.google.com/file/d/17KttRtMs-2MwI6yIuWPRFjxU6tFkiki1/view?usp=sharing)
 
