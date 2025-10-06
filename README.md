@@ -6,17 +6,8 @@ An Android application that captures camera frames, processes them in real-time 
 
 ## 🎥 Demo Video
 
-To embed your `edge_detection.mp4` video, you first need to upload it to a hosting service like YouTube, Imgur, or even a GitHub release. Then, you can embed it in this `README.md` file.
+[![Watch the video]](https://drive.google.com/file/d/17KttRtMs-2MwI6yIuWPRFjxU6tFkiki1/view?usp=sharing)
 
-**Example using an image (GIF):**
-`![Edge Detection Demo](https://i.imgur.com/example.gif)`
-
-**Example using a video link:**
-`[Watch the demo video](https://www.youtube.com/watch?v=your_video_id)`
-
-*(Replace the placeholder above with your actual video link or embedded player.)*
-
----
 
 ## 🌟 Features Implemented
 
