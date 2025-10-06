@@ -3,7 +3,10 @@
 An Android application that captures camera frames, processes them in real-time using OpenCV in C++, and streams the result to a web-based viewer.
 
 ---
-![App Screenshot](edgeapp.jpg)
+| Original Image |Detected Edges |
+|----------------|----------------|
+| <img src="org_image.jpg" width="250"> | <img src="edge_image.jpg" width="250"> |
+
 ## 🎥 Demo Video Link
 Click on this Link to watch the Demo
 [![Watch the video]](https://drive.google.com/file/d/17KttRtMs-2MwI6yIuWPRFjxU6tFkiki1/view?usp=sharing)
