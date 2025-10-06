@@ -1,0 +1,28 @@
+{
+  "name": "edgevision-web-viewer",
+  "version": "1.0.0",
+  "description": "Web viewer for EdgeVision processed frames",
+  "main": "dist/viewer.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "start": "tsc && node server.js",
+    "dev": "tsc --watch & node server.js"
+  },
+  "keywords": [
+    "opencv",
+    "edge-detection",
+    "viewer"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@types/ws": "^8.18.1",
+    "express": "^4.18.2",
+    "ws": "^8.18.3"
+  }
+}

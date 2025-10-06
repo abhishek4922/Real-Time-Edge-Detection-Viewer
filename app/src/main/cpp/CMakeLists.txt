@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.18.1)
 
 # Set the path to the OpenCV Android SDK
-set(OpenCV_DIR ${CMAKE_SOURCE_DIR}/../../../jniLibs/${ANDROID_ABI}/sdk/native/jni)
-find_package(OpenCV REQUIRED)
+set(OpenCV_DIR C:/Users/abhis/Downloads/OpenCV-android-sdk/sdk/native/jni)
+find_package(OpenCV 4.12 REQUIRED java)
 
 # Add the native library
 add_library( # Sets the name of the library.

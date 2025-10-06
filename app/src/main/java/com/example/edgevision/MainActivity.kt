@@ -5,6 +5,9 @@ import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.ImageFormat
+import android.graphics.Rect
+import android.graphics.YuvImage
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
@@ -21,6 +24,7 @@ import com.example.edgevision.processor.NativeProcessor
 import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
 import org.opencv.core.Mat
+import org.opencv.imgproc.Imgproc
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -28,6 +32,13 @@ import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.math.roundToInt
+
+import org.java_websocket.client.WebSocketClient
+import org.java_websocket.handshake.ServerHandshake
+import org.json.JSONObject
+import java.io.ByteArrayOutputStream
+import android.util.Base64
+import java.net.URI
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
@@ -42,6 +53,8 @@ class MainActivity : AppCompatActivity() {
     private var frameCount = 0
     private var lastFpsTime = System.currentTimeMillis()
     private var currentFps = 0.0
+    private lateinit var webSocketClient: WebSocketClient
+    private var lastFrameSentTime = 0L
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,6 +67,7 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "OpenCV initialization failed", Toast.LENGTH_SHORT).show()
             return
         }
+        Log.d(TAG, "OpenCV loaded successfully")
         
         // Initialize native processor
         nativeProcessor = NativeProcessor()
@@ -71,6 +85,8 @@ class MainActivity : AppCompatActivity() {
         }
         
         cameraExecutor = Executors.newSingleThreadExecutor()
+
+        initWebSocket()
     }
     
     private fun setupButtonListeners() {
@@ -79,6 +95,13 @@ class MainActivity : AppCompatActivity() {
             isProcessing = !isProcessing
             val iconRes = if (isProcessing) R.drawable.ic_pause else R.drawable.ic_play
             binding.fabToggleProcessing.setImageResource(iconRes)
+            
+            // Show/hide processed image overlay
+            binding.imageProcessed.visibility = if (isProcessing) {
+                android.view.View.VISIBLE
+            } else {
+                android.view.View.GONE
+            }
             
             val message = if (isProcessing) "Edge detection enabled" else "Edge detection disabled"
             Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
@@ -158,21 +181,42 @@ class MainActivity : AppCompatActivity() {
         // Process frame if enabled
         if (isProcessing) {
             try {
-                // Convert ImageProxy to Mat
+                // Convert ImageProxy to Bitmap
                 val bitmap = imageProxy.toBitmap()
+                
+                // Convert Bitmap to Mat
                 val mat = Mat()
                 Utils.bitmapToMat(bitmap, mat)
                 
-                // Process with OpenCV
+                // Process with OpenCV (Canny edge detection)
                 val processedMat = nativeProcessor.processFrame(mat)
                 
-                // Convert back to bitmap and display
+                // Convert processed Mat back to Bitmap
                 val processedBitmap = Bitmap.createBitmap(
-                    processedMat.cols(), 
-                    processedMat.rows(), 
+                    processedMat.cols(),
+                    processedMat.rows(),
                     Bitmap.Config.ARGB_8888
                 )
                 Utils.matToBitmap(processedMat, processedBitmap)
+                
+                // Update UI on main thread
+                runOnUiThread {
+                    binding.imageProcessed.setImageBitmap(processedBitmap)
+                }
+
+                // Send frame over WebSocket
+                val currentTime = System.currentTimeMillis()
+                if (webSocketClient.isOpen && (currentTime - lastFrameSentTime > 100)) {
+                    val base64Image = processedBitmap.toBase64()
+                    val json = JSONObject().apply {
+                        put("image", base64Image)
+                        put("fps", currentFps.roundToInt())
+                        put("resolution", "${processedBitmap.width}x${processedBitmap.height}")
+                        put("processingTime", 0) // Placeholder
+                    }
+                    webSocketClient.send(json.toString())
+                    lastFrameSentTime = currentTime
+                }
                 
                 // Clean up
                 mat.release()
@@ -242,10 +286,25 @@ class MainActivity : AppCompatActivity() {
     
     @androidx.camera.core.ExperimentalGetImage
     private fun ImageProxy.toBitmap(): Bitmap {
-        val buffer = planes[0].buffer
-        val bytes = ByteArray(buffer.remaining())
-        buffer.get(bytes)
-        return android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        val yBuffer = planes[0].buffer // Y
+        val uBuffer = planes[1].buffer // U
+        val vBuffer = planes[2].buffer // V
+
+        val ySize = yBuffer.remaining()
+        val uSize = uBuffer.remaining()
+        val vSize = vBuffer.remaining()
+
+        val nv21 = ByteArray(ySize + uSize + vSize)
+
+        yBuffer.get(nv21, 0, ySize)
+        vBuffer.get(nv21, ySize, vSize)
+        uBuffer.get(nv21, ySize + vSize, uSize)
+
+        val yuvImage = android.graphics.YuvImage(nv21, android.graphics.ImageFormat.NV21, this.width, this.height, null)
+        val out = java.io.ByteArrayOutputStream()
+        yuvImage.compressToJpeg(android.graphics.Rect(0, 0, yuvImage.width, yuvImage.height), 100, out)
+        val imageBytes = out.toByteArray()
+        return android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
     }
     
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
@@ -269,6 +328,36 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         cameraExecutor.shutdown()
+        webSocketClient.close()
+    }
+
+    private fun initWebSocket() {
+        val uri = URI("ws://172.24.112.1:3000") // Replace with your server IP
+        webSocketClient = object : WebSocketClient(uri) {
+            override fun onOpen(handshakedata: ServerHandshake?) {
+                Log.d(TAG, "WebSocket connection opened")
+            }
+
+            override fun onMessage(message: String?) {
+                // Not used for sending data
+            }
+
+            override fun onClose(code: Int, reason: String?, remote: Boolean) {
+                Log.d(TAG, "WebSocket connection closed")
+            }
+
+            override fun onError(ex: Exception?) {
+                Log.e(TAG, "WebSocket error", ex)
+            }
+        }
+        webSocketClient.connect()
+    }
+
+    private fun Bitmap.toBase64(): String {
+        val outputStream = ByteArrayOutputStream()
+        compress(Bitmap.CompressFormat.JPEG, 50, outputStream)
+        val byteArray = outputStream.toByteArray()
+        return Base64.encodeToString(byteArray, Base64.DEFAULT)
     }
     
     companion object {
@@ -276,8 +365,7 @@ class MainActivity : AppCompatActivity() {
         private const val FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS"
         private const val REQUEST_CODE_PERMISSIONS = 10
         private val REQUIRED_PERMISSIONS = arrayOf(
-            Manifest.permission.CAMERA,
-            Manifest.permission.WRITE_EXTERNAL_STORAGE
+            Manifest.permission.CAMERA
         )
     }
 }

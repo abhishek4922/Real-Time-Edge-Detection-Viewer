@@ -4,11 +4,13 @@ import android.content.Context
 import android.graphics.SurfaceTexture
 import android.util.AttributeSet
 import android.util.Size
+import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.TextureView
 import androidx.camera.core.Preview
 import androidx.camera.core.SurfaceRequest
+import androidx.core.content.ContextCompat
 import java.util.concurrent.Executor
 
 class CameraView @JvmOverloads constructor(
